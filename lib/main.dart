@@ -17,9 +17,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: CameraPreviewScreen(camera: camera),
-    );
+    return MaterialApp(home: CameraPreviewScreen(camera: camera));
   }
 }
 
@@ -39,10 +37,7 @@ class _CameraPreviewScreenState extends State<CameraPreviewScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = CameraController(
-      widget.camera,
-      ResolutionPreset.high,
-    );
+    _controller = CameraController(widget.camera, ResolutionPreset.high);
     _initializeControllerFuture = _controller.initialize();
   }
 
@@ -60,7 +55,9 @@ class _CameraPreviewScreenState extends State<CameraPreviewScreen> {
       await Gal.putImage(image.path, album: 'flutter_access_device_app');
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Picture saved to Gallery/flutter_access_device_app')),
+        const SnackBar(
+          content: Text('Picture saved to Gallery/flutter_access_device_app'),
+        ),
       );
     } catch (e) {
       print('Error taking picture: $e');
@@ -75,35 +72,7 @@ class _CameraPreviewScreenState extends State<CameraPreviewScreen> {
         future: _initializeControllerFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final previewSize = _controller.value.previewSize;
-                if (previewSize == null) {
-                  return const SizedBox.expand();
-                }
-
-                final screenAspectRatio = constraints.maxWidth / constraints.maxHeight;
-                final previewAspectRatio = previewSize.height / previewSize.width;
-
-                return ClipRect(
-                  child: OverflowBox(
-                    alignment: Alignment.center,
-                    child: FittedBox(
-                      fit: BoxFit.cover,
-                      child: SizedBox(
-                        width: screenAspectRatio > previewAspectRatio
-                            ? constraints.maxWidth
-                            : constraints.maxHeight * previewAspectRatio,
-                        height: screenAspectRatio > previewAspectRatio
-                            ? constraints.maxWidth / previewAspectRatio
-                            : constraints.maxHeight,
-                        child: CameraPreview(_controller),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            );
+            return CameraPreview(_controller);
           } else {
             return const Center(child: CircularProgressIndicator());
           }
