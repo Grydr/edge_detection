@@ -1,86 +1,65 @@
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
-import 'package:gal/gal.dart';
+import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  final cameras = await availableCameras();
-  final firstCamera = cameras.first;
-
-  runApp(MyApp(camera: firstCamera));
+void main() {
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  final CameraDescription camera;
-
-  const MyApp({super.key, required this.camera});
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(home: CameraPreviewScreen(camera: camera));
+    return MaterialApp(
+      title: 'YOLO Realtime Detection',
+      theme: ThemeData.dark(),
+      home: const YOLODetection(),
+    );
   }
 }
 
-class CameraPreviewScreen extends StatefulWidget {
-  final CameraDescription camera;
-
-  const CameraPreviewScreen({super.key, required this.camera});
+class YOLODetection extends StatefulWidget {
+  const YOLODetection({super.key});
 
   @override
-  State<CameraPreviewScreen> createState() => _CameraPreviewScreenState();
+  State<YOLODetection> createState() => _YOLODetectionState();
 }
 
-class _CameraPreviewScreenState extends State<CameraPreviewScreen> {
-  late CameraController _controller;
-  late Future<void> _initializeControllerFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = CameraController(widget.camera, ResolutionPreset.high);
-    _initializeControllerFuture = _controller.initialize();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> takePicture() async {
-    try {
-      await _initializeControllerFuture;
-      final image = await _controller.takePicture();
-
-      await Gal.putImage(image.path, album: 'flutter_access_device_app');
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Picture saved to Gallery/flutter_access_device_app'),
-        ),
-      );
-    } catch (e) {
-      print('Error taking picture: $e');
-    }
-  }
+class _YOLODetectionState extends State<YOLODetection> {
+  List<YOLOResult> _detections = [];
+  double _fps = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Camera Access')),
-      body: FutureBuilder<void>(
-        future: _initializeControllerFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            return CameraPreview(_controller);
-          } else {
-            return const Center(child: CircularProgressIndicator());
-          }
-        },
+      appBar: AppBar(
+        backgroundColor: Colors.black54,
+        title: Text('${_detections.length} objects'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Center(
+              child: Text(
+                '${_fps.toStringAsFixed(1)} FPS',
+                style: const TextStyle(color: Colors.greenAccent),
+              ),
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: takePicture,
-        child: const Icon(Icons.camera),
+      body: YOLOView(
+        modelPath: 'assets/models/yolo11n_int8.tflite',
+        task: YOLOTask.detect,
+        confidenceThreshold: 0.5,
+        iouThreshold: 0.45,
+        lensFacing: LensFacing.back,
+        showOverlays: true,
+        onResult: (results) {
+          setState(() => _detections = results);
+        },
+        onPerformanceMetrics: (metrics) {
+          setState(() => _fps = metrics.fps);
+        },
       ),
     );
   }
