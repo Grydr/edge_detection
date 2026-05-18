@@ -45,7 +45,9 @@ class _YOLODemoState extends State<YOLODemo> {
 
     try {
       yolo = YOLO(
-        modelPath: YOLO.defaultOfficialModel() ?? 'yolo26n',
+        // modelPath: YOLO.defaultOfficialModel() ?? 'yolo26n',
+        modelPath: 'assets/models/yolo26n_int8.tflite',
+        task: YOLOTask.detect,
         useGpu: false,
       );
       await yolo!.loadModel();
@@ -80,6 +82,7 @@ class _YOLODemoState extends State<YOLODemo> {
       final decodedImage = img.decodeImage(imageBytes);
       final detectionResults = await _predictWithFallback(imageBytes);
       final boxes = detectionResults['boxes'] ?? [];
+      final normalizedBoxes = _ensurePixelBoxes(boxes, _selectedImageSize);
 
       setState(() {
         _selectedImageSize = decodedImage == null
@@ -88,7 +91,7 @@ class _YOLODemoState extends State<YOLODemo> {
                 decodedImage.width.toDouble(),
                 decodedImage.height.toDouble(),
               );
-        _rawResults = List<dynamic>.from(boxes);
+        _rawResults = List<dynamic>.from(normalizedBoxes);
         results = _filterByConfidence(_rawResults, _confidenceThreshold);
         isLoading = false;
       });
@@ -114,6 +117,60 @@ class _YOLODemoState extends State<YOLODemo> {
     return detections.where((detection) {
       final confidence = (detection['confidence'] as num?)?.toDouble() ?? 0.0;
       return confidence >= threshold;
+    }).toList();
+  }
+
+  List<dynamic> _ensurePixelBoxes(List<dynamic> detections, Size? sourceSize) {
+    if (sourceSize == null) return detections;
+
+    return detections.map((detection) {
+      if (detection is! Map) return detection;
+
+      if (detection.containsKey('x') && detection.containsKey('y')) {
+        final x = (detection['x'] as num?)?.toDouble();
+        final y = (detection['y'] as num?)?.toDouble();
+        final w = (detection['w'] as num?)?.toDouble();
+        final h = (detection['h'] as num?)?.toDouble();
+
+        if (x == null || y == null || w == null || h == null) {
+          return detection;
+        }
+
+        final bool normalized = x <= 1 && y <= 1 && w <= 1 && h <= 1;
+        if (!normalized) return detection;
+
+        return {
+          ...detection,
+          'x': x * sourceSize.width,
+          'y': y * sourceSize.height,
+          'w': w * sourceSize.width,
+          'h': h * sourceSize.height,
+        };
+      }
+
+      if (detection.containsKey('x1') && detection.containsKey('y1')) {
+        final x1 = (detection['x1'] as num?)?.toDouble();
+        final y1 = (detection['y1'] as num?)?.toDouble();
+        final x2 = (detection['x2'] as num?)?.toDouble();
+        final y2 = (detection['y2'] as num?)?.toDouble();
+
+        if (x1 == null || y1 == null || x2 == null || y2 == null) {
+          return detection;
+        }
+
+        final bool normalized = x1 <= 1 && y1 <= 1 && x2 <= 1 && y2 <= 1;
+        if (!normalized) return detection;
+
+        return {
+          ...detection,
+          'x1': x1 * sourceSize.width,
+          'y1': y1 * sourceSize.height,
+          'x2': x2 * sourceSize.width,
+          'y2': y2 * sourceSize.height,
+        };
+      }
+
+      return detection;
     }).toList();
   }
 

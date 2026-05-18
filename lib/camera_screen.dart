@@ -65,6 +65,7 @@ class _CameraScreenState extends State<CameraScreen> {
       _cameraController = CameraController(
         cameras[0], // Use rear camera
         ResolutionPreset.high,
+        imageFormatGroup: ImageFormatGroup.yuv420,
       );
 
       await _cameraController!.initialize();
@@ -167,18 +168,23 @@ class _CameraScreenState extends State<CameraScreen> {
     final uBytes = uPlane.bytes;
     final vBytes = vPlane.bytes;
 
-    final uvPixelStride = uPlane.bytesPerPixel ?? 1;
+    final uvPixelStrideU = uPlane.bytesPerPixel ?? 1;
+    final uvPixelStrideV = vPlane.bytesPerPixel ?? 1;
+    final rowStrideU = uPlane.bytesPerRow;
+    final rowStrideV = vPlane.bytesPerRow;
     final rgbImage = img.Image(width: width, height: height);
 
     for (int y = 0; y < height; y++) {
       final yRowOffset = y * yPlane.bytesPerRow;
-      final uvRowOffset = (y >> 1) * uPlane.bytesPerRow;
+      final uvRowOffsetU = (y >> 1) * rowStrideU;
+      final uvRowOffsetV = (y >> 1) * rowStrideV;
 
       for (int x = 0; x < width; x++) {
         final yIndex = yRowOffset + x;
-        final uvColOffset = (x >> 1) * uvPixelStride;
-        final uIndex = uvRowOffset + uvColOffset;
-        final vIndex = (y >> 1) * vPlane.bytesPerRow + uvColOffset;
+        final uvColOffsetU = (x >> 1) * uvPixelStrideU;
+        final uvColOffsetV = (x >> 1) * uvPixelStrideV;
+        final uIndex = uvRowOffsetU + uvColOffsetU;
+        final vIndex = uvRowOffsetV + uvColOffsetV;
 
         if (yIndex >= yBytes.length ||
             uIndex >= uBytes.length ||
